@@ -1,0 +1,13 @@
+# Python dependencies discovered from repository files and documentation
+# Verified packages used in Python code and recommended in setup_guide.md
+# NOTE: Dockerfile expects this file to exist and install these packages
+
+Flask==3.0.0
+psycopg2-binary==2.9.9
+bcrypt==4.1.2
+PyJWT==2.8.0
+requests==2.31.0
+
+# Optional / Development packages (not required for main app but useful for testing)
+# pytest
+# pytest-cov
