@@ -23,13 +23,13 @@ def print_header(message):
     print(f"{'=' * 80}{Colors.END}\n")
 
 def print_success(message):
-    print(f"{Colors.GREEN}✓ {message}{Colors.END}")
+    print(f"{Colors.GREEN} Success {message}{Colors.END}")
 
 def print_error(message):
-    print(f"{Colors.RED}✗ {message}{Colors.END}")
+    print(f"{Colors.RED} Error {message}{Colors.END}")
 
 def print_info(message):
-    print(f"{Colors.YELLOW}ℹ {message}{Colors.END}")
+    print(f"{Colors.YELLOW} Info {message}{Colors.END}")
 
 def run_test(script_name, description):
     """Run a test script and return success status"""
@@ -127,12 +127,12 @@ def main():
     print()
     if all_passed:
         print(f"{Colors.GREEN}{Colors.BOLD}{'=' * 80}")
-        print(f"ALL TESTS PASSED! ✓")
+        print(f"ALL TESTS PASSED!")
         print(f"{'=' * 80}{Colors.END}")
         return 0
     else:
         print(f"{Colors.RED}{Colors.BOLD}{'=' * 80}")
-        print(f"SOME TESTS FAILED! ✗")
+        print(f"SOME TESTS FAILED!")
         print(f"{'=' * 80}{Colors.END}")
         print()
         print("Check the output above for details on failed tests.")
