@@ -408,9 +408,8 @@ python setup_database.py
 # 5. Run Flask application
 python app.py
 
-# 6. In separate terminals, run tests
-python test_admin_service.py
-python test_user_workflow.py
+# 6. In a separate terminal, run testing script
+python run_all_tests.py
 
 # 7. When done, stop PostgreSQL
 docker-compose down
