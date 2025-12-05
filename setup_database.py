@@ -4,7 +4,6 @@ import os
 import time
 import sys
 
-# Database connection parameters
 DB_CONFIG = {
     'host': os.environ.get('DB_HOST', 'localhost'),
     'database': os.environ.get('DB_NAME', 'streaming_service'),
@@ -14,7 +13,7 @@ DB_CONFIG = {
 }
 
 def wait_for_db(max_retries=30, delay=2):
-    """Wait for database to be ready"""
+    """Polls until the database is reachable or timeout."""
     print(f"Waiting for database at {DB_CONFIG['host']}:{DB_CONFIG['port']}...")
     
     for attempt in range(max_retries):
@@ -41,7 +40,7 @@ def create_tables(conn):
     
     print("\nCreating tables...")
     
-    # Drop existing tables (for clean setup)
+    # Drop existing tables for clean setup
     cur.execute("""
         DROP TABLE IF EXISTS viewing_history CASCADE;
         DROP TABLE IF EXISTS wishlist CASCADE;

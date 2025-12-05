@@ -5,12 +5,13 @@ from psycopg2.extras import RealDictCursor
 import jwt
 import sys
 
-# Check that the installed 'jwt' module is the expected PyJWT (provides encode/decode)
+# Validate PyJWT (not the older jwt package)
 if not (hasattr(jwt, 'encode') and hasattr(jwt, 'decode')):
     print("ERROR: The installed 'jwt' package is not PyJWT. This app requires PyJWT (pip install PyJWT==2.8.0).")
     print("You may have the 'jwt' package (jwt==1.x) installed which is incompatible. Please run:")
     print("  python -m pip uninstall jwt && python -m pip install PyJWT==2.8.0")
     sys.exit(3)
+
 import bcrypt
 from datetime import datetime, timedelta
 import os
@@ -18,7 +19,6 @@ import os
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 
-# Database connection
 def get_db_connection():
     conn = psycopg2.connect(
         host=os.environ.get('DB_HOST', 'localhost'),
@@ -29,7 +29,6 @@ def get_db_connection():
     )
     return conn
 
-# Authentication decorator for customer routes
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -49,7 +48,6 @@ def token_required(f):
     
     return decorated
 
-# Authentication decorator for admin routes
 def admin_token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -73,15 +71,33 @@ def admin_token_required(f):
 
 # ==================== CUSTOMER ROUTES ====================
 
-# AUTHENTICATION
+@app.route('/api/subscriptions', methods=['GET'])
+def get_subscriptions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute('SELECT subscription_id, name, monthly_price, max_profiles FROM subscriptions ORDER BY subscription_id')
+        subscriptions = cur.fetchall()
+        return jsonify([dict(s) for s in subscriptions]), 200
+    finally:
+        cur.close()
+        conn.close()
+
+# ==================== AUTHENTICATION ====================
+
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     data = request.json
     email = data.get('email')
     password = data.get('password')
+    subscription_id = data.get('subscription_id')
     
     if not email or not password:
         return jsonify({'error': 'Email and password required'}), 400
+    
+    if not subscription_id:
+        return jsonify({'error': 'subscription_id required'}), 400
     
     conn = get_db_connection()
     cur = conn.cursor()
@@ -92,13 +108,18 @@ def register():
         if cur.fetchone():
             return jsonify({'error': 'Email already exists'}), 400
         
+        # Verify subscription exists
+        cur.execute('SELECT subscription_id FROM subscriptions WHERE subscription_id = %s', (subscription_id,))
+        if not cur.fetchone():
+            return jsonify({'error': 'Subscription not found'}), 404
+        
         # Hash password
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         
-        # Insert account
+        # Insert account with subscription
         cur.execute(
-            'INSERT INTO accounts (email, password_hash) VALUES (%s, %s) RETURNING account_id',
-            (email, hashed_password.decode('utf-8'))
+            'INSERT INTO accounts (email, password_hash, subscription_id) VALUES (%s, %s, %s) RETURNING account_id',
+            (email, hashed_password.decode('utf-8'), subscription_id)
         )
         account_id = cur.fetchone()['account_id']
         conn.commit()
@@ -112,7 +133,7 @@ def register():
         return jsonify({
             'account_id': account_id,
             'email': email,
-            'subscription_id': None,
+            'subscription_id': subscription_id,
             'token': token
         }), 201
         
@@ -812,7 +833,7 @@ def admin_logout(current_admin_id):
 # SUBSCRIPTION PLAN MANAGEMENT
 @app.route('/api/admin/subscriptions', methods=['GET'])
 @admin_token_required
-def get_subscriptions(current_admin_id):
+def get_admin_subscriptions(current_admin_id):
     conn = get_db_connection()
     cur = conn.cursor()
     

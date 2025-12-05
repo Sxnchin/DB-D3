@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Simple Admin Service Test Script
-This script verifies basic admin endpoints: login and list subscriptions.
-"""
+"""Tests admin operations: authentication, subscription management."""
 
 import os
 import sys

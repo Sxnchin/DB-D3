@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Simple User Workflow Test Script
-This script simulates a minimal user flow: register, login, create profile, and fetch content.
-"""
+"""Tests complete user workflow: register, profile creation, content browsing, wishlist, and viewing history."""
 
 import os
 import sys
@@ -22,11 +19,31 @@ def print_header(msg):
 def main():
     print_header('STREAMING SERVICE - COMPLETE USER WORKFLOW TEST')
 
+    # Fetch available subscriptions
+    print('[TEST] Fetching available subscriptions')
+    try:
+        r = requests.get(f'{API_BASE}/api/subscriptions', timeout=5)
+    except Exception as e:
+        print(f'✗ ERROR: Could not connect to API: {e}')
+        return 2
+
+    if r.status_code != 200:
+        print(f'Failed to fetch subscriptions (status: {r.status_code}) - {r.text}')
+        return 2
+
+    subscriptions = r.json()
+    if not subscriptions:
+        print('No subscriptions available')
+        return 2
+
+    subscription_id = subscriptions[0].get('subscription_id')
+    print(f' Info : Using subscription ID: {subscription_id}')
+
     # Register a new user
-    print('[TEST] Registering new user account')
+    print('\n[TEST] Registering new user account')
     email = f'testuser{int(time.time())}@example.com'
     password = 'SecurePass123!'
-    payload = {'email': email, 'password': password}
+    payload = {'email': email, 'password': password, 'subscription_id': subscription_id}
 
     try:
         r = requests.post(f'{API_BASE}/api/auth/register', json=payload, timeout=5)
@@ -70,6 +87,82 @@ def main():
 
     items = r.json()
     print(f' Info : Retrieved {len(items)} content items')
+    if not items:
+        print(' Error : No content available to test wishlist/history')
+        return 2
+
+    # Choose a content item to test wishlist and viewing history
+    first_item = items[0]
+    content_id = None
+    if isinstance(first_item, dict):
+        content_id = first_item.get('content_id') or first_item.get('id')
+    else:
+        try:
+            content_id = first_item[0].get('content_id')
+        except Exception:
+            content_id = None
+
+    if not content_id:
+        print(' Error : Could not determine a content_id from content list')
+        return 2
+
+    # --- Wishlist: add item, verify present, then remove ---
+    print('\n[TEST] Wishlist: add and verify')
+    r = requests.post(f'{API_BASE}/api/profiles/{profile_id}/wishlist/{content_id}', headers=headers, timeout=5)
+    if r.status_code not in (200, 201):
+        print(f' Error : Failed to add to wishlist (status: {r.status_code}) - {r.text}')
+        return 2
+
+    r = requests.get(f'{API_BASE}/api/profiles/{profile_id}/wishlist', headers=headers, timeout=5)
+    if r.status_code != 200:
+        print(f' Error : Failed to fetch wishlist (status: {r.status_code}) - {r.text}')
+        return 2
+
+    wishlist = r.json()
+    try:
+        found = any(int(w.get('content_id')) == int(content_id) for w in wishlist)
+    except Exception:
+        found = any(str(w.get('content_id')) == str(content_id) for w in wishlist)
+
+    if not found:
+        print(' Error : Content not found in wishlist after adding')
+        return 2
+
+    print(' Info : Wishlist contains the added content')
+
+    # --- Viewing history: update and verify ---
+    print('\n[TEST] Viewing History: update and verify')
+    last_ts = int(time.time())
+    r = requests.put(
+        f'{API_BASE}/api/profiles/{profile_id}/history/{content_id}',
+        headers=headers,
+        json={'last_timestamp': last_ts},
+        timeout=5
+    )
+    if r.status_code != 200:
+        print(f' Error : Failed to update viewing history (status: {r.status_code}) - {r.text}')
+        return 2
+
+    r = requests.get(f'{API_BASE}/api/profiles/{profile_id}/history/{content_id}', headers=headers, timeout=5)
+    if r.status_code != 200:
+        print(f' Error : Failed to fetch viewing history item (status: {r.status_code}) - {r.text}')
+        return 2
+
+    history_item = r.json()
+    returned_ts = history_item.get('last_timestamp')
+    try:
+        returned_int = int(float(returned_ts))
+    except Exception:
+        try:
+            returned_int = int(returned_ts)
+        except Exception:
+            returned_int = None
+
+    if returned_int != last_ts:
+        print(f' Error : Viewing history timestamp mismatch (sent: {last_ts}, got: {returned_ts})')
+        return 2
+
+    print(' Info : Viewing history updated and verified')
     print('\n Info : ALL USER WORKFLOW TESTS COMPLETED SUCCESSFULLY!')
     print('\nTest User Credentials:')
     print(f'  Email: {email}')
